@@ -1,0 +1,244 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  ACCOUNTANT
+  SUPERVISOR
+}
+
+enum ContractStatus {
+  OPEN
+  CLOSED
+  SUSPENDED
+}
+
+enum ReceiptType {
+  OPENING
+  PAYMENT
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  phone        String?
+  createdAt    DateTime @default(now())
+}
+
+model Settings {
+  id                     Int      @id @default(1)
+  calcDateOverride       DateTime?
+  branch                 String   @default("الفرع الرئيسي — الدمام")
+  vatRate                Float    @default(0.15)
+  daysInMonth            Int      @default(30)
+  monthlyTargetManual    Float?
+  escalationDays         Int      @default(15)
+  warningDays            Int      @default(7)
+  claimGraceDays         Int      @default(7)
+  companyName            String   @default("شركة فرناس المستقبل المحدودة")
+  crNumber               String   @default("1009118320")
+  unifiedNationalNumber  String   @default("7040012226")
+  taxNumber              String   @default("312599044300003")
+  address                String   @default("3569 طريق الملك فهد، حي الاتصالات، الدمام 32257")
+  iban                   String   @default("SA5020000003275161009940")
+  bankName               String   @default("بنك الرياض")
+  logoUrl                String?
+  whatsappNumber         String   @default("966500000000")
+  carOwnersList          String   @default("[]")
+  paymentMethodsList     String   @default("[]")
+  employeesList          String   @default("[]")
+  expenseTypesList       String   @default("[]")
+  chargeToList           String   @default("[]")
+  carStatusList          String   @default("[]")
+  statementMethodsList   String   @default("[]")
+  followUpResultsList    String   @default("[]")
+  commitmentCategoryList String   @default("[]")
+}
+
+model Client {
+  id         String     @id @default(cuid())
+  name       String
+  type       String?
+  taxNumber  String?
+  mobile     String?
+  email      String?
+  createdAt  DateTime   @default(now())
+  contracts  Contract[]
+}
+
+model Car {
+  id                String     @id @default(cuid())
+  plate             String     @unique
+  brand             String?
+  model             String?
+  year              String?
+  vin               String?
+  owner             String?
+  authorization     String?
+  istimaraExpiry    DateTime?
+  insuranceExpiry   DateTime?
+  insuranceCompany  String?
+  inspectionExpiry  DateTime?
+  dailyPrice        Float      @default(0)
+  weeklyPrice       Float      @default(0)
+  monthlyPrice      Float      @default(0)
+  manualStatus      String?
+  notes             String?
+  createdAt         DateTime   @default(now())
+  contracts         Contract[]
+  expenses          Expense[]
+}
+
+model Contract {
+  id               String    @id @default(cuid())
+  contractNo       Int       @unique
+  clientId         String
+  client           Client    @relation(fields: [clientId], references: [id])
+  driverName       String?
+  mobile           String?
+  carId            String?
+  car              Car?      @relation(fields: [carId], references: [id])
+  plateText        String?
+  startDate        DateTime
+  dailyPrice       Float
+  status           ContractStatus @default(OPEN)
+  closeDate        DateTime?
+  followUpNotes    String?
+  additions        Float     @default(0)
+  statementFlag    Boolean   @default(false)
+  lastFollowUpDate DateTime?
+  followUpResult   String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  receipts         Receipt[]
+}
+
+model Receipt {
+  id            String      @id @default(cuid())
+  receiptNo     String      @unique
+  date          DateTime
+  contractId    String
+  contract      Contract    @relation(fields: [contractId], references: [id])
+  amount        Float
+  method        String?
+  bankRef       String?
+  type          ReceiptType @default(PAYMENT)
+  receivedFrom  String?
+  taxInvoiceNo  String?
+  createdAt     DateTime    @default(now())
+}
+
+model Expense {
+  id               String   @id @default(cuid())
+  date             DateTime
+  carId            String
+  car              Car      @relation(fields: [carId], references: [id])
+  type             String
+  vendor           String?
+  invoiceNo        String?
+  amountBeforeTax  Float
+  taxable          Boolean  @default(true)
+  paymentMethod    String?
+  chargeTo         String   @default("فرناس")
+  notes            String?
+  createdAt        DateTime @default(now())
+}
+
+model Commitment {
+  id              String    @id @default(cuid())
+  item            String
+  category        String
+  vendor          String?
+  leaseContractNo String?
+  startDate       DateTime?
+  endDate         DateTime?
+  totalValue      Float?
+  periodicity     String    @default("شهري")
+  paymentsCount   Int?
+  paymentAmount   Float?
+  paidSoFar       Float     @default(0)
+  responsible     String?
+  responsiblePhone String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+}
+
+model Employee {
+  id                    String     @id @default(cuid())
+  empNo                 String     @unique
+  name                  String
+  jobTitle              String?
+  nationality           String?
+  isSaudi               Boolean    @default(false)
+  iqamaNo               String?
+  iqamaExpiry           DateTime?
+  workPermitExpiry      DateTime?
+  passportExpiry        DateTime?
+  medicalInsuranceExpiry DateTime?
+  hireDate              DateTime?
+  mobile                String?
+  basicSalary           Float      @default(0)
+  housingAllowance      Float      @default(0)
+  transportAllowance    Float      @default(0)
+  otherAllowances       Float      @default(0)
+  status                String     @default("على رأس العمل")
+  createdAt             DateTime   @default(now())
+  payrolls              Payroll[]
+}
+
+model Payroll {
+  id                 String   @id @default(cuid())
+  month              DateTime
+  employeeId         String
+  employee           Employee @relation(fields: [employeeId], references: [id])
+  overtimeHours      Float    @default(0)
+  incentives         Float    @default(0)
+  absenceDeduction   Float    @default(0)
+  advances           Float    @default(0)
+  penalties          Float    @default(0)
+  paidDate           DateTime?
+  notes              String?
+  createdAt          DateTime @default(now())
+
+  @@unique([month, employeeId])
+}
+
+model CompanyDocument {
+  id                    String    @id @default(cuid())
+  name                  String
+  authority             String?
+  number                String?
+  issueDate             DateTime?
+  expiryDate            DateTime?
+  renewalCycleMonths    Int?
+  fees                  Float?
+  renewedThisCycle      Boolean   @default(false)
+  alertBeforeDays        Int      @default(30)
+  stopsTransportLicense Boolean   @default(false)
+  responsible           String?
+  responsiblePhone      String?
+  officialSite          String?
+  notes                 String?
+  createdAt             DateTime  @default(now())
+}
+
+model StatementRequest {
+  id             String   @id @default(cuid())
+  requestNo      String   @unique
+  toEmployee     String
+  selectionMethod String
+  clientName     String?
+  date           DateTime @default(now())
+  replyBy        DateTime?
+  contractNosJson String  @default("[]")
+  createdAt      DateTime @default(now())
+}
